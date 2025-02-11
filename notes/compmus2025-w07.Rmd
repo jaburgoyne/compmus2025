@@ -96,6 +96,7 @@ aisc2024 <- read_csv("aisc2024.csv")
 ```
 
 For each of the AI Song Contest semi-finalists, these data include seven data points, or 'features' in AI terminology:
+
 - **artist**: the name of the artist
 - **title**: the title of the track
 - **danceability**: an estimate of how likely a song is to be 'danceable' (0 = very unlikely to 1 = very likely)

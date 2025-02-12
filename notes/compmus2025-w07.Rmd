@@ -42,7 +42,7 @@ You can download the raw source code for these lecture notes [here](compmus2025-
 - Demo: Sonic Visualiser (10 min)
 - Lecture: What is good analytical design? (15 min)
 
-If you want some distraction *after* the lecture, have a look at the [Sources of Good Data Visualisations](https://canvas.uva.nl/courses/44721/pages/sources-of-sometimes-good-data-visualisations?module_item_id=1913347) on Canvas.
+If you want some distraction *after* the lecture, have a look at the Sources of Good Data Visualisations on Canvas.
 
 ### Wednesday · 12 February · Lab
 

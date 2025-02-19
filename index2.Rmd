@@ -1,0 +1,13 @@
+---
+title: "This is my title"
+author: "John Ashley Burgoyne"
+output: 
+  flexdashboard::flex_dashboard:
+    storyboard: true
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(flexdashboard)
+```
+

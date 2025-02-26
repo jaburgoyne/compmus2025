@@ -20,6 +20,7 @@ Welcome to Computational Musicology 2024! This storyboard contains further examp
 You can access the lecture notes at the following links.
 
 - [Week 7 · Computational Musicology and (Audio) Visualisation](./notes/compmus2025-w07.html)
+- [Week 9 · Chroma, Timbre, and Self-Similarity](./notes/compmus2025-w09.html)
 
 ### Visualising the AI Song Contest
 
@@ -31,7 +32,8 @@ aisc2024 |>                   # Start with the data
       x = tempo,
       y = arousal,
       size = instrumentalness,
-      colour = danceability
+      colour = danceability,
+      label = artist
     )
   ) +
   geom_point() +              # Scatter plot.

@@ -1,0 +1,127 @@
+---
+title: "Week 11 · Novelty Functions and Tempograms"
+author: "John Ashley Burgoyne"
+date: "12 March 2025"
+output: 
+  html_document:
+    toc: true
+    theme:
+      heading_font:
+        google: 
+          family: Rajdhani
+          wght: 700
+      base_font:
+        google: Fira Sans
+      code_font:
+        google: Fira Mono
+      bg: "#FFFFFF"
+      fg: "#212529" 
+      primary: "#2b2bee"
+      secondary: "#39d7b8"
+      success: "#39d7b8"
+      danger: "#fa5577"
+      warning: "#ffb14c"
+      info: "#0cc7f1"
+---
+
+You can download the raw source code for these lecture notes [here](compmus2025-w11.Rmd).
+
+## Course Meeting Plan
+
+### Wednesday · 12 March · Lecture
+
+  - Lecture: Onset detection (15 mins)
+  - Breakout: Energy or spectrum? (15 mins)
+  - Discussion: Breakout findings (5 mins)
+  - Demo: Beat tracking (15 mins)
+  - Lecture: Tempo estimation (15 mins)
+  - Discussion: Preferred tempo (10 mins)
+  - Portfolio critiques (15 min)
+  
+### Wednesday · 12 March · Novelty Functions
+
+  - Demo: Novelty functions in Spotify (15 mins)
+  - Breakout: Novelty functions (20 mins)
+  - Discussion: Breakout findings (10 mins)
+  - Demo: Tempograms in Spotify (15 mins)
+  - Breakout: Tempograms (20 mins)
+  - Discussion: Breakout findings (10 mins)
+
+## Set-up
+
+Again, you will want to download a new version of `compmus.R` this week.
+You should also check make sure that you have the `signal` package installed, which is necessary for generating tempograms.
+You do not need to load it explicitly, but the new functions in `compmus.R` will complain if it is not installed.
+Use Install Packages (under the Tools menu) in RStudio to install it.
+
+```{r, results = 'hide'}
+library(tidyverse)
+source("compmus.R")
+```
+
+## Breakout 1: Energy or Spectrum?
+
+Look at one (or more) of the self-similarity matrices from somebody's portfolio in your group. Discuss what you think a spectrum-based novelty function would look like for this track. Listen to (some of) the track and also discussion what you think an energy-based novelty function would look like. Which one do you think would be most useful for beat tracking, and why? 
+
+## Breakout 2: Novelty Functions
+
+We can compute an energy-based novelty function based on Essentia's loudness estimates. 
+Try the `compmus_energy_novelty()` function on several files in the class corpus. 
+How well do they seem to work?
+
+```{r}
+"features/ahram-j-1.json" |>
+  compmus_energy_novelty() |> 
+  ggplot(aes(t, novelty)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Time (s)", y = "Energy Novelty")
+```
+
+We can use similar approaches for cepstrograms to get an approximation to spectral novelty, with the `compmus_spectral_novelty()` function. 
+Do you find the novelty functions using this approximation to be more or less helpful than the energy novelty?
+
+```{r}
+"features/ahram-j-1.json" |>
+  compmus_spectral_novelty() |> 
+  ggplot(aes(t, novelty)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Time (s)", y = "Spectral Novelty")
+
+```
+
+## Breakout 3: Tempograms
+
+The new `compmus_tempogram()` function generates a Fourier-based tempogram from Essentia's estimates of beat location and beat loudness, ready to plot with `geom_raster()`.
+Be warned that computing tempograms can be slow!
+Try increasing the window size and hop size if you find that you are waiting too long.
+
+```{r}
+"features/ahram-j-1.json" |>
+  compmus_tempogram(window_size = 8, hop_size = 1, cyclic = FALSE) |>
+  ggplot(aes(x = time, y = bpm, fill = power)) +
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Tempo (BPM)") +
+  theme_classic()
+```
+
+The textbook notes that Fourier-based tempograms tend to pick up strongly on tempo harmonics. Wrapping into a cyclic tempogram can be more informative. 
+
+```{r}
+"features/ahram-j-1.json" |>
+  compmus_tempogram(window_size = 8, hop_size = 1, cyclic = TRUE) |>
+  ggplot(aes(x = time, y = bpm, fill = power)) +
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Tempo (BPM)") +
+  theme_classic()
+```
+
+### Instructions
+
+Return to the track you discussed in Breakout 1 (or choose a new track that somebody in your group loves). Compute regular and cyclic tempograms for this track. 
+  - How well do they work? 
+  - Do you see more tempo harmonics or more tempo *sub*-harmonics? Is that what you expected? Why?
+  - Try other tracks as time permits, and be prepared to share your most interesting tempogram with the class.

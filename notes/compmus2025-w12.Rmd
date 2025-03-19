@@ -1,0 +1,307 @@
+---
+title: "Week 12 · Classification and Clustering"
+author: "John Ashley Burgoyne"
+date: "19 March 2025"
+output: 
+  html_document:
+    toc: true
+    theme:
+      heading_font:
+        google: 
+          family: Rajdhani
+          wght: 700
+      base_font:
+        google: Fira Sans
+      code_font:
+        google: Fira Mono
+      bg: "#FFFFFF"
+      fg: "#212529" 
+      primary: "#2b2bee"
+      secondary: "#39d7b8"
+      success: "#39d7b8"
+      danger: "#fa5577"
+      warning: "#ffb14c"
+      info: "#0cc7f1"
+---
+
+You can download the raw source code for these lecture notes [here](compmus2025-w12.Rmd).
+
+## Course Meeting Plan
+
+### Wednesday · 19 March · Lecture
+
+  - Demo: Generative AI for music (10 minutes)
+  - Lecture: Famous MIR applications (20 minutes)
+  - Lecture: Generative AI (15 minutes)
+  - Discussion: Generative AI (5 minutes)
+  - Lecture: Classification and Clustering (20 minutes)
+  - Discussion: Classification and Clustering (5 minutes)
+  - Exam info: (5 minutes)
+  - Wrap-up: (10 minutes)
+
+### Wednesday · 19 March · Lab
+
+  - Demo: Hierarchical clustering (15 minutes)
+  - Breakout: Clustering (20 minutes)
+  - Discussion: Breakout results (10 minutes)
+  - Demo: Classification with tidymodels (15 minutes)
+  - Breakout: Classification (20 minutes)
+  - Discussion: Breakout results (10 minutes)
+
+
+## Lab set-up
+
+We will be using the developing `tidymodels` framework this week for integrating with the different machine-learning libraries in a consistent manner. 
+You can install this package from the usual RStudio Tools menu. 
+All of the other tools that are strictly necessary for clustering are available in base R. For full flexibility, however, the `ggdendro` and `heatmaply` packages are recommended. 
+If you want to explore further possibilities, look at the `cluster` and `protoclust` packages.
+
+As you work through the breakout sessions, you will occasionally get error messages asking you to install other packages, too. Install whatever R asks for from the Tools menu, and then try running the chunk again. 
+Two helper functions are also included here: `get_conf_mat()` and `get_pr()`.
+
+The missing files from the class corpus have now been added, as well as labels for which tracks were AI-generated and which not.
+You should re-download the class corpus, class corpus features, and `compmus2025.csv` from Canvas.
+
+```{r, results = 'hide'}
+library(tidyverse)
+library(tidymodels)
+library(ggdendro)
+library(heatmaply)
+source("compmus.R")
+
+get_conf_mat <- function(fit) {
+  outcome <- .get_tune_outcome_names(fit)
+  fit |> 
+    collect_predictions() |> 
+    conf_mat(truth = outcome, estimate = .pred_class)
+}  
+
+get_pr <- function(fit) {
+  fit |> 
+    conf_mat_resampled() |> 
+    group_by(Prediction) |> mutate(precision = Freq / sum(Freq)) |> 
+    group_by(Truth) |> mutate(recall = Freq / sum(Freq)) |> 
+    ungroup() |> filter(Prediction == Truth) |> 
+    select(class = Prediction, precision, recall)
+}  
+```
+
+## Breakout 1: Clustering
+
+For this work, it is helpful to load the class corpus features in an separate variable.
+
+```{r}
+compmus2025 <- read_csv("compmus2025.csv")
+```
+
+
+### Pre-processing
+
+In the `tidyverse` approach, we can preprocess data with a `recipe` specifying what we are predicting and what variables we think might be useful for that prediction. For most projects, the track name will be the best choice (although feel free to experiment with others). The code below uses `str_trunc` to clip the track name to a maximum of 20 characters, again in order to improve readability. The `column_to_rownames` command is ugly but necessary for the plot labels to appear correctly.
+
+Then we use `step` functions to do any data cleaning (usually centring and scaling, but `step_range` is a viable alternative that squeezes everything to be between 0 and 1). This week we discussed that although standardising variables with `step_center` to make the mean 0 and `step_scale` to make the standard deviation 1 is the most common approach, sometimes `step_range` is a better alternative, which squashes or stretches every features so that it ranges from 0 to 1.It's wise to try both.
+
+```{r}
+cluster_juice <-
+  recipe(
+    filename ~
+      arousal +
+      danceability +
+      instrumentalness +
+      tempo +
+      valence,
+    data = compmus2025
+  ) |>
+  step_center(all_predictors()) |>
+  step_scale(all_predictors()) |> 
+  # step_range(all_predictors()) |> 
+  prep(compmus2025) |>
+  juice() |>
+  column_to_rownames("filename")
+```
+
+### Computing distances
+
+When using `step_center` and `step_scale`, then the Euclidean distance is usual. When using `step_range`, then the Manhattan distance is also a good choice: this combination is known as *Gower's distance* and has a long history in clustering.
+
+**After you have this section of the notebook working with Euclidean distance, try modifying it to use Gower's distance.**
+
+```{r}
+compmus_dist <- dist(cluster_juice, method = "euclidean")
+```
+
+### Hierarchical clustering
+
+There are three primary types of *linkage*: single, average, and complete. Usually average or complete give the best results. We can use the `ggendrogram` function to make a more standardised plot of the results.
+
+```{r}
+compmus_dist |> 
+  hclust(method = "single") |> # Try single, average, and complete.
+  dendro_data() |>
+  ggdendrogram()
+```
+
+**Try all three of these linkages. Which one looks the best? Which one *sounds* the best (when you listen to the tracks on Spotify)? Can you guess which features are separating the clusters?** 
+
+### Heatmaps
+
+Especially for storyboards, it can be helpful to visualise hierarchical clusterings along with heatmaps of feature values. We can do that with `heatmaply`. Although the interactive heatmaps are flashy, think carefully when deciding whether this representation is more helpful for your storyboard than the simpler dendrograms above. 
+
+```{r}
+heatmaply(
+  cluster_juice,
+  hclustfun = hclust,
+  hclust_method = "average",  # Change for single, average, or complete linkage.
+  dist_method = "euclidean"
+)
+```
+
+**Can you determine from the heatmap which features seem to be the most and least useful for the clustering? Try modifying the recipe to find the most effective combination of features.**
+
+## Breakout 2: Classification
+
+In order to demonstrate some of the principles of classification, we will try to identify features to distinguish that AI-generated and non-AI-generated tracks in the class corpus. For a full analysis, we would need to delve deeper, but let's start with the features we used in the first week.
+
+**After you have this section of the notebook working, try using other combinations of features.**
+
+We need to filter out the tracks from students who did not specify whether their tracks were AI-generated.
+
+```{r}
+compmus2025_filtered <- 
+  compmus2025 |> filter(!is.na(ai)) |> 
+  mutate(ai = factor(if_else(ai, "AI", "Non-AI")))
+```
+
+As you think about this lab session -- and your portfolio -- think about the four kinds of validity that Sturm and Wiggins discussed in our reading for last week. Do these projects have:
+
+  - Statistical validity [somewhat beyond the scope of this course]?
+  - Content validity?
+  - Internal validity?
+  - External validity?
+
+### Pre-processing
+
+Remember that in the `tidyverse` approach, we can preprocess data with a `recipe`. In this case, instead of a label for making the cluster plots readable, we use the label for the class that we want to predict.
+
+```{r}
+classification_recipe <-
+  recipe(
+    ai ~
+      arousal +
+      danceability +
+      instrumentalness +
+      tempo +
+      valence,
+    data = compmus2025_filtered
+  ) |>
+  step_center(all_predictors()) |>
+  step_scale(all_predictors())      # Converts to z-scores.
+  # step_range(all_predictors())    # Sets range to [0, 1].
+```
+
+### Cross-Validation
+
+The `vfold_cv` function sets up cross-validation. We will use 5-fold cross-validation here in the interest of speed, but 10-fold cross-validation is more typical. 
+
+```{r}
+compmus_cv <- compmus2025_filtered |> vfold_cv(5)
+```
+
+### Classification Algorithms
+
+Your optional DataCamp tutorials this week introduced four classical algorithms for classification: $k$-nearest neighbour, naive Bayes, logistic regression, and decision trees. Other than naive Bayes, all of them can be implemented more simply in `tidymodels`.
+
+#### *k*-Nearest Neighbour
+
+A $k$-nearest neighbour classifier often works just fine with only one neighbour. It is very sensitive to the choice of features, however. Let's check the performance as a baseline.
+
+```{r}
+knn_model <-
+  nearest_neighbor(neighbors = 1) |>
+  set_mode("classification") |> 
+  set_engine("kknn")
+classification_knn <- 
+  workflow() |> 
+  add_recipe(classification_recipe) |> 
+  add_model(knn_model) |> 
+  fit_resamples(compmus_cv, control = control_resamples(save_pred = TRUE))
+```
+
+```{r}
+classification_knn |> get_conf_mat()
+```
+
+These matrices `autoplot` in two forms.
+
+```{r}
+classification_knn |> get_conf_mat() |> autoplot(type = "mosaic")
+```
+
+```{r}
+classification_knn |> get_conf_mat() |> autoplot(type = "heatmap")
+```
+We can also compute precision and recall for each class.
+
+```{r}
+classification_knn |> get_pr()
+```
+
+#### Random Forests
+
+Random forests are a more powerful variant of the decision-tree algorithm you learned about on DataCamp. Although no single classifier works best for all problems, in practice, random forests are among the best-performing off-the-shelf algorithms for many real-world use cases. 
+
+```{r}
+forest_model <-
+  rand_forest() |>
+  set_mode("classification") |> 
+  set_engine("ranger", importance = "impurity")
+indie_forest <- 
+  workflow() |> 
+  add_recipe(classification_recipe) |> 
+  add_model(forest_model) |> 
+  fit_resamples(
+    compmus_cv, 
+    control = control_resamples(save_pred = TRUE)
+  )
+```
+
+```{r}
+indie_forest |> get_pr()
+```
+
+Random forests also give us a ranking of *feature importance*, which is a measure of how useful each feature in the recipe was for distinguishing the ground-truth classes. We can plot it with `randomForest::varImpPlot`. Again, it is clear that timbre, specifically Component 1 (power) and Component 11, is important. Note that because random forests are indeed random, the accuracy and feature rankings will vary (slightly) every time you re-run the code.
+
+```{r}
+workflow() |> 
+  add_recipe(classification_recipe) |> 
+  add_model(forest_model) |> 
+  fit(compmus2025_filtered) |> 
+  pluck("fit", "fit", "fit") |>
+  ranger::importance() |> 
+  enframe() |> 
+  mutate(name = fct_reorder(name, value)) |> 
+  ggplot(aes(name, value)) + 
+  geom_col() + 
+  coord_flip() +
+  theme_minimal() +
+  labs(x = NULL, y = "Importance")
+```
+
+Armed with this feature set, perhaps we can make a better plot. It's clear that the running playlist is low on acousticness, but the party music overlaps heavily with it and also spreads out into the wider acousticness and brightness range of Indie Pop.
+
+```{r}
+compmus2025_filtered |>
+  ggplot(aes(x = valence, y = arousal, colour = ai, size = tempo)) +
+  geom_point(alpha = 0.8) +
+  scale_color_viridis_d() +
+  labs(
+    x = "Valence",
+    y = "Arousal",
+    size = "Tempo",
+    colour = "AI"
+  )
+```
+
+**Can you get a clearer visualisation by using a different set of the top features from the random forest?**
+
+When you are happy with your visualisation, the `ggploty()` trick from the first week can work well for these plots.

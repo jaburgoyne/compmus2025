@@ -23,6 +23,7 @@ You can access the lecture notes at the following links.
 - [Week 9 · Chroma, Timbre, and Self-Similarity](./notes/compmus2025-w09.html)
 - [Week 10 · Key and Chord Estimation](./notes/compmus2025-w10.html)
 - [Week 11 · Novelty Functions and Tempograms](./notes/compmus2025-w11.html)
+- [Week 12 · Classification and Clustering](./notes/compmus2025-w12.html)
 
 ### Visualising the AI Song Contest
 
